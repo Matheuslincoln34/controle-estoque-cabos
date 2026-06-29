@@ -1,62 +1,66 @@
 package com.seuportifolio.controle_cabos.config;
 
+import com.seuportifolio.controle_cabos.security.SecurityFilter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-
-import static org.springframework.security.config.Customizer.withDefaults;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Autowired
+    private SecurityFilter securityFilter;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
+        return http
+                .csrf(csrf -> csrf.disable())
+                // Desliga o sistema antigo e transforma a API em Stateless (exige token)
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Libera o acesso público apenas para visualizar a documentação do Swagger
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/").permitAll()
-
-                        // 2. A Sala do Cofre: APENAS o perfil SUPERVISOR...
+                        // Libera a porta da recepção para as pessoas poderem pegar o token
+                        .requestMatchers("/auth/login").permitAll()
                         .requestMatchers("/api/estoque/estorno", "/api/estoque/abastecimento").hasRole("SUPERVISOR")
-
-                        // 3. Qualquer outra rota exige autenticação
                         .anyRequest().authenticated()
                 )
-
-                // Liga a leitura de senhas no padrão "Basic Auth" (Ideal para testes em APIs)
-                .httpBasic(withDefaults())
-                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
-
-        return http.build();
+                // Coloca o nosso novo segurança (Filtro) na porta da frente
+                .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
+                .build();
     }
 
-    // Gerando os crachás da empresa na memória do sistema
+    // Bean necessário para o AuthController conseguir conferir a senha
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
+
     @Bean
     public UserDetailsService userDetailsService() {
+        UserDetails chefe = User.withDefaultPasswordEncoder()
+                .username("chefe")
+                .password("admin123")
+                .roles("SUPERVISOR")
+                .build();
 
-        // Crachá 1: A equipe de campo (ex: Walmir e Wanderson)
-        UserDetails equipe = User.builder()
+        UserDetails equipeRua = User.withDefaultPasswordEncoder()
                 .username("equipe_rua")
-                .password("{noop}senha123") // O {noop} diz ao Java para não exigir criptografia avançada neste teste
+                .password("senha123")
                 .roles("EQUIPE")
                 .build();
 
-        // Crachá 2: A supervisão do almoxarifado
-        UserDetails supervisor = User.builder()
-                .username("chefe")
-                .password("{noop}admin123")
-                .roles("SUPERVISOR", "EQUIPE") // O chefe recebe as duas credenciais
-                .build();
-
-        return new InMemoryUserDetailsManager(equipe, supervisor);
+        return new InMemoryUserDetailsManager(chefe, equipeRua);
     }
 }
