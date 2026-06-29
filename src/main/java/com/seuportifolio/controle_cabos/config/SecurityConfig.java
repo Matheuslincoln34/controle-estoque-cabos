@@ -22,15 +22,16 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Catraca Livre: Deixa o Swagger e o painel do Banco de Dados abertos
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/h2-console/**").permitAll()
+                        // 1. Libera o acesso público apenas para visualizar a documentação do Swagger
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/").permitAll()
 
-                        // 2. A Sala do Cofre: APENAS o perfil SUPERVISOR pode acessar as URLs de estorno e abastecimento
+                        // 2. A Sala do Cofre: APENAS o perfil SUPERVISOR...
                         .requestMatchers("/api/estoque/estorno", "/api/estoque/abastecimento").hasRole("SUPERVISOR")
 
-                        // 3. Para o resto (como o Lançamento de Consumo), exige qualquer login válido
+                        // 3. Qualquer outra rota exige autenticação
                         .anyRequest().authenticated()
                 )
+
                 // Liga a leitura de senhas no padrão "Basic Auth" (Ideal para testes em APIs)
                 .httpBasic(withDefaults())
                 .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
