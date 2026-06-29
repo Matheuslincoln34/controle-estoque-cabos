@@ -22,4 +22,15 @@ public interface MovimentacaoEstoqueRepository extends JpaRepository<Movimentaca
             "AND m.modeloCabo = :modeloCabo")
     BigDecimal somarSaidasPorLiderECabo(@Param("matricula") String matricula,
                                         @Param("modeloCabo") ModeloCabo modeloCabo);
+    // A sua fórmula exata: (Abastecimento + Estorno) - (Saída) = Saldo do Caminhão
+    @Query("SELECT COALESCE(SUM(CASE " +
+            "WHEN m.tipoMovimentacao = 'ABASTECIMENTO' THEN m.quantidadeMetros " +
+            "WHEN m.tipoMovimentacao = 'ENTRADA' THEN m.quantidadeMetros " +
+            "WHEN m.tipoMovimentacao = 'SAIDA' THEN -m.quantidadeMetros " +
+            "ELSE 0 END), 0) " +
+            "FROM MovimentacaoEstoque m " +
+            "WHERE m.equipe.matriculaLider = :matricula " +
+            "AND m.modeloCabo = :modeloCabo")
+    BigDecimal calcularSaldoAtualPorLiderECabo(@Param("matricula") String matricula,
+                                               @Param("modeloCabo") ModeloCabo modeloCabo);
 }

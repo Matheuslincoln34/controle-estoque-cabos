@@ -25,8 +25,8 @@ public class SecurityConfig {
                         // 1. Catraca Livre: Deixa o Swagger e o painel do Banco de Dados abertos
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/h2-console/**").permitAll()
 
-                        // 2. A Sala do Cofre: APENAS o perfil SUPERVISOR pode acessar a URL de estorno
-                        .requestMatchers("/api/estoque/estorno").hasRole("SUPERVISOR")
+                        // 2. A Sala do Cofre: APENAS o perfil SUPERVISOR pode acessar as URLs de estorno e abastecimento
+                        .requestMatchers("/api/estoque/estorno", "/api/estoque/abastecimento").hasRole("SUPERVISOR")
 
                         // 3. Para o resto (como o Lançamento de Consumo), exige qualquer login válido
                         .anyRequest().authenticated()

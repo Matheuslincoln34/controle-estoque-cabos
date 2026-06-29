@@ -28,10 +28,20 @@ public class EstoqueService {
     @Autowired
     private MovimentacaoEstoqueRepository movimentacaoRepository;
 
+    // 1. Método com a nova TRAVA de Saldo Negativo
     @Transactional
     public void registrarConsumo(ConsumoDTO dto) {
         Equipe equipe = equipeRepository.findById(dto.getEquipeId())
                 .orElseThrow(() -> new RuntimeException("Erro: Equipe não encontrada no sistema."));
+
+        BigDecimal saldoAtual = movimentacaoRepository.calcularSaldoAtualPorLiderECabo(
+                equipe.getMatriculaLider(), dto.getModeloCabo());
+
+        if (dto.getQuantidadeMetros().compareTo(saldoAtual) > 0) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Saldo insuficiente no caminhão. Saldo atual do " + dto.getModeloCabo() + ": " + saldoAtual + " metros.");
+        }
 
         Ocorrencia ocorrencia = new Ocorrencia();
         ocorrencia.setNumeroOs(dto.getNumeroOs());
@@ -53,32 +63,48 @@ public class EstoqueService {
         movimentacaoRepository.save(saida);
     }
 
-    // Método da Auditoria posicionado corretamente
+    // 2. Método de Auditoria de Gastos
     public BigDecimal consultarGastoTotal(String matriculaLider, ModeloCabo modeloCabo) {
         return movimentacaoRepository.somarSaidasPorLiderECabo(matriculaLider, modeloCabo);
     }
-    // Método para estornar um lançamento errado
+
+    // 3. Método de Correção/Estorno
     @Transactional
     public void realizarEstorno(com.seuportifolio.controle_cabos.dto.AjusteDTO dto) {
-
-        // 1. Acha o lançamento original que foi feito errado
         MovimentacaoEstoque original = movimentacaoRepository.findById(dto.getMovimentacaoId())
                 .orElseThrow(() -> new RuntimeException("Erro: Lançamento não encontrado."));
 
-        // 2. Cria o lançamento de correção (Devolvendo o material pro caminhão)
         MovimentacaoEstoque estorno = new MovimentacaoEstoque();
         estorno.setEquipe(original.getEquipe());
-        estorno.setOcorrencia(original.getOcorrencia()); // Mantém amarrado na mesma OS
+        estorno.setOcorrencia(original.getOcorrencia());
         estorno.setModeloCabo(original.getModeloCabo());
-        estorno.setQuantidadeMetros(original.getQuantidadeMetros()); // Devolve a mesma metragem
-
-        // A MÁGICA: Em vez de SAÍDA, gera uma ENTRADA (Devolução)
+        estorno.setQuantidadeMetros(original.getQuantidadeMetros());
         estorno.setTipoMovimentacao(TipoMovimentacao.ENTRADA);
-
-        estorno.setJustificativa(dto.getJustificativa()); // Salva o motivo
-        estorno.setMovimentacaoOrigem(original); // Amarramos o estorno ao erro original (Rastreabilidade)
+        estorno.setJustificativa(dto.getJustificativa());
+        estorno.setMovimentacaoOrigem(original);
         estorno.setDataRegistro(LocalDateTime.now());
 
         movimentacaoRepository.save(estorno);
+    }
+
+    // 4. Método de Auditoria do Saldo Real
+    public BigDecimal consultarSaldoAtual(String matriculaLider, ModeloCabo modeloCabo) {
+        return movimentacaoRepository.calcularSaldoAtualPorLiderECabo(matriculaLider, modeloCabo);
+    }
+
+    // 5. Método de Abastecimento do Galpão para o Caminhão
+    @Transactional
+    public void registrarAbastecimento(com.seuportifolio.controle_cabos.dto.AbastecimentoDTO dto) {
+        Equipe equipe = equipeRepository.findById(dto.getEquipeId())
+                .orElseThrow(() -> new RuntimeException("Erro: Equipe não encontrada no sistema."));
+
+        MovimentacaoEstoque abastecimento = new MovimentacaoEstoque();
+        abastecimento.setEquipe(equipe);
+        abastecimento.setTipoMovimentacao(TipoMovimentacao.ABASTECIMENTO);
+        abastecimento.setModeloCabo(dto.getModeloCabo());
+        abastecimento.setQuantidadeMetros(dto.getQuantidadeMetros());
+        abastecimento.setDataRegistro(LocalDateTime.now());
+
+        movimentacaoRepository.save(abastecimento);
     }
 }

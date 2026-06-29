@@ -38,4 +38,19 @@ public class EstoqueController {
         estoqueService.realizarEstorno(dto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+    // Rota GET: Mostra o saldo real que deve estar fisicamente na caçamba do caminhão
+    @GetMapping("/auditoria/saldo")
+    public ResponseEntity<BigDecimal> consultarSaldoAtual(
+            @RequestParam String matricula,
+            @RequestParam ModeloCabo cabo) {
+
+        BigDecimal saldo = estoqueService.consultarSaldoAtual(matricula, cabo);
+        return ResponseEntity.ok(saldo);
+    }
+    // Rota POST: Usada pelo Almoxarife para enviar as bobinas para a equipe
+    @PostMapping("/abastecimento")
+    public ResponseEntity<Void> abastecerEquipe(@RequestBody com.seuportifolio.controle_cabos.dto.AbastecimentoDTO dto) {
+        estoqueService.registrarAbastecimento(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
 }
