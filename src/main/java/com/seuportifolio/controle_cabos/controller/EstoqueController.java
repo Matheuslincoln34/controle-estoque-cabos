@@ -16,6 +16,8 @@ public class EstoqueController {
 
     @Autowired
     private EstoqueService estoqueService;
+    @Autowired
+    private com.seuportifolio.controle_cabos.service.RelatorioService relatorioService;
 
     @PostMapping("/consumo")
     public ResponseEntity<Void> lancarConsumo(@RequestBody ConsumoDTO dto) {
@@ -24,7 +26,7 @@ public class EstoqueController {
     }
 
     // Rota da Auditoria posicionada corretamente
-    @GetMapping("/auditoria/gasto")
+    @GetMapping(value = "/auditoria/relatorio", produces = org.springframework.http.MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<BigDecimal> consultarGasto(
             @RequestParam String matricula,
             @RequestParam ModeloCabo cabo) {
@@ -48,9 +50,23 @@ public class EstoqueController {
         return ResponseEntity.ok(saldo);
     }
     // Rota POST: Usada pelo Almoxarife para enviar as bobinas para a equipe
+    // Rota POST: Usada pelo Almoxarife para enviar as bobinas para a equipe
     @PostMapping("/abastecimento")
     public ResponseEntity<Void> abastecerEquipe(@RequestBody com.seuportifolio.controle_cabos.dto.AbastecimentoDTO dto) {
         estoqueService.registrarAbastecimento(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).build();
+    } // <-- ESSA É A CHAVE QUE ESTAVA FALTANDO!
+
+    // Rota GET: Gera e faz o download automático do PDF do turno
+    @GetMapping("/auditoria/relatorio")
+    public ResponseEntity<byte[]> baixarRelatorioTurno(@RequestParam String matricula) {
+        byte[] pdfBytes = relatorioService.gerarRelatorioTurno(matricula);
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "relatorio-turno-" + matricula + ".pdf");
+
+        return new ResponseEntity<>(pdfBytes, headers, org.springframework.http.HttpStatus.OK);
+
+        }
     }
-}

@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Repository
 public interface MovimentacaoEstoqueRepository extends JpaRepository<MovimentacaoEstoque, Long> {
@@ -33,4 +34,7 @@ public interface MovimentacaoEstoqueRepository extends JpaRepository<Movimentaca
             "AND m.modeloCabo = :modeloCabo")
     BigDecimal calcularSaldoAtualPorLiderECabo(@Param("matricula") String matricula,
                                                @Param("modeloCabo") ModeloCabo modeloCabo);
+    // Busca todo o histórico de movimentações de uma equipe filtrando pela matrícula do líder
+    List<MovimentacaoEstoque> findByEquipeMatriculaLiderOrderByDataRegistroDesc(String matriculaLider);
+
 }
